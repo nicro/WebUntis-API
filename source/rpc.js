@@ -1,20 +1,21 @@
 class rpc {
     constructor(_https) {
         this.https       = _https;
+
         this.sessionId   = '';
+        this.personType  = '';
+        this.personId    = '';
+        this.klasseId    = '';
+
         this.link   = '';
         this.base_link = '/WebUntis/jsonrpc.do?school='
-    }
-
-    set_sessionId(_sessionId) {
-        this.sessionId = _sessionId;
     }
 
     set_settings(host_name, school_name) {
         this.link = `${host_name}${this.base_link}${school_name}`;
     }
 
-    generate_options(target) {
+    generate_options(target, req_length) {
         var options = {
             hostname: '',
             port: 443,
@@ -22,7 +23,8 @@ class rpc {
             method: 'POST',
             headers: {
             'Content-Type': 'application/json',
-            'Cookie': `JSESSIONID=${this.sessionId}`
+            'Cookie': `JSESSIONID=${this.sessionId}`,
+            "Content-Length": `${req_length}`
             }
           };
     
@@ -39,24 +41,30 @@ class rpc {
         return JSON.stringify({
             'id': '15',
             'method': `${method}`,
-            "jsonrpc":"2.0",
-            "params": params
+            "params": params,
+            "jsonrpc":"2.0"
           });
     }
     
     
-    query(method, params) {
+    query(_method, _params) {
         return new Promise( (resolve, reject) => {
             let chuncks = [];
-            
+
+            var params  = this.generate_params( _method, _params );
+            var options =  this.generate_options(this.link, params.length);
+
             const req = this.https.request (
-                this.generate_options(this.link), 
-                res => { 
+                options, res => {
                     res.on ('data',   ch => chuncks.push(ch) );
-                    res.on('end', () => { resolve (JSON.parse(Buffer.concat(chuncks).toString()) ); });
+                    res.on('end', () => { 
+                        var resp = JSON.parse(Buffer.concat(chuncks).toString());
+                        console.log(resp);
+                        resolve (resp); 
+                    });
                 }
             );
-            req.write( this.generate_params( method, params ) );
+            req.write(params);
             req.end();
         });
     }
